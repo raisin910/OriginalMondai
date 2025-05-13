@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const correctAnswer = document.getElementById('correct-answer');
     const nextButton = document.getElementById('next-question');
     const restartButton = document.getElementById('restart-quiz');
+    const homeButtonQuiz = document.getElementById('home-button-quiz');
+    const homeButtonResults = document.getElementById('home-button-results');
     const totalQuestionsElement = document.getElementById('totalQuestions');
     const correctAnswersElement = document.getElementById('correctAnswers');
     const incorrectAnswersElement = document.getElementById('incorrectAnswers');
@@ -284,6 +286,10 @@ document.addEventListener('DOMContentLoaded', function() {
     nextButton.addEventListener('click', nextQuestion);
     restartButton.addEventListener('click', startQuiz);
     
+    // ホームボタンのイベントリスナー
+    homeButtonQuiz.addEventListener('click', goToHome);
+    homeButtonResults.addEventListener('click', goToHome);
+    
     // クリアボタンのイベントリスナー
     clearDataButton.addEventListener('click', function() {
         if (confirm('保存されたデータをすべて削除しますか？この操作は元に戻せません。')) {
@@ -399,5 +405,33 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.removeItem('itpassport_quiz_missed');
         localStorage.removeItem('itpassport_quiz_remaining');
         console.log('保存データをクリアしました');
+    }
+    
+    // ホーム画面に戻る関数
+    function goToHome() {
+        // 現在の進捗状況を確認
+        if (remainingQuestions && remainingQuestions.length > 0 && (correctCount > 0 || incorrectCount > 0)) {
+            // クイズ途中の場合は確認ダイアログを表示
+            if (!confirm('クイズが途中です。ホームに戻ると進捗が保存され、後で続きから再開できます。ホームに戻りますか？')) {
+                return;
+            }
+            
+            // 進捗を保存
+            saveProgress();
+        }
+        
+        // すべてのセクションを非表示にして、ファイル選択画面を表示
+        quizSection.classList.add('hidden');
+        resultsSection.classList.add('hidden');
+        fileSection.classList.remove('hidden');
+        
+        // 「次の問題」ボタンのテキストを元に戻す
+        nextButton.textContent = '次の問題';
+        
+        // フィードバックセクションをリセット
+        feedback.classList.add('hidden');
+        feedback.classList.remove('correct', 'incorrect');
+        userAnswer.value = '';
+        nextButton.classList.add('hidden');
     }
 });
