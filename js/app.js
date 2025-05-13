@@ -23,8 +23,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 問題データを保存する変数
     let questions = [];
-    let shuffledQuestions = []; // シャッフルされた問題のインデックス配列
-    let currentQuestionIndex = -1;
+    let remainingQuestions = []; // 出題されていない問題のインデックス配列
     let correctCount = 0;
     let incorrectCount = 0;
     let missedQuestions = [];
@@ -117,14 +116,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // クイズを開始する関数
     function startQuiz() {
         // 状態をリセット
-        currentQuestionIndex = -1;
         correctCount = 0;
         incorrectCount = 0;
         missedQuestions = [];
         
-        // 問題のインデックスをシャッフル
-        const questionIndices = Array.from({length: questions.length}, (_, i) => i);
-        shuffledQuestions = shuffleArray(questionIndices);
+        // 出題されていない問題のインデックス配列を初期化
+        // すべての問題のインデックスを配列に入れてシャッフル
+        remainingQuestions = shuffleArray(Array.from({length: questions.length}, (_, i) => i));
         
         // 統計情報を表示
         updateStats();
@@ -146,25 +144,19 @@ document.addEventListener('DOMContentLoaded', function() {
         userAnswer.value = '';
         nextButton.classList.add('hidden');
         
-        // 現在の問題インデックスを次に進める
-        currentQuestionIndex++;
-        
         // すべての問題が終了したかチェック
-        if (currentQuestionIndex >= shuffledQuestions.length) {
+        if (remainingQuestions.length === 0) {
             showResults();
             return;
         }
         
-        // シャッフルされた順序で問題を取得
-        const actualQuestionIndex = shuffledQuestions[currentQuestionIndex];
-        const currentQuestion = questions[actualQuestionIndex];
+        // 残りの問題から1つを取り出して表示
+        const currentQuestionIndex = remainingQuestions[0];
+        const currentQuestion = questions[currentQuestionIndex];
         
         // 問題を表示
-        questionText.textContent = currentQuestion.question;
-        
-        // 問題番号を表示（任意：ユーザーに何問目か知らせる）
-        const questionNumber = currentQuestionIndex + 1;
-        questionText.textContent = `問題 ${questionNumber} / ${shuffledQuestions.length}: ${currentQuestion.question}`;
+        const questionNumber = questions.length - remainingQuestions.length + 1;
+        questionText.textContent = `問題 ${questionNumber} / ${questions.length}: ${currentQuestion.question}`;
         
         // 入力欄にフォーカス
         userAnswer.focus();
@@ -172,15 +164,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 回答をチェックする関数
     function checkAnswer() {
+        if (remainingQuestions.length === 0) {
+            showResults();
+            return;
+        }
+        
         const userInput = userAnswer.value.trim();
         
-        // 現在の実際の問題インデックスを取得
-        const actualQuestionIndex = shuffledQuestions[currentQuestionIndex];
-        const currentQuestion = questions[actualQuestionIndex];
+        // 現在の問題のインデックスを取得して配列から削除
+        const currentQuestionIndex = remainingQuestions.shift();
+        const currentQuestion = questions[currentQuestionIndex];
         const isCorrect = userInput === currentQuestion.answer;
         
         // 問題の統計を更新
-        questionStats[actualQuestionIndex].attempts++;
+        questionStats[currentQuestionIndex].attempts++;
         
         if (isCorrect) {
             // 正解の場合
@@ -196,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function() {
             incorrectAnswersElement.textContent = incorrectCount;
             
             // 不正解の問題を記録
-            questionStats[actualQuestionIndex].incorrectAttempts++;
+            questionStats[currentQuestionIndex].incorrectAttempts++;
             missedQuestions.push({
                 question: currentQuestion.question,
                 userAnswer: userInput,
@@ -218,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
         saveProgress();
         
         // すべての問題に解答したかチェック
-        if (correctCount + incorrectCount >= questions.length) {
+        if (remainingQuestions.length === 0) {
             // 「次の問題」ボタンのテキストを変更
             nextButton.textContent = '結果を表示';
         }
@@ -313,8 +310,7 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.setItem('itpassport_quiz_correct', correctCount);
             localStorage.setItem('itpassport_quiz_incorrect', incorrectCount);
             localStorage.setItem('itpassport_quiz_missed', JSON.stringify(missedQuestions));
-            localStorage.setItem('itpassport_quiz_shuffled', JSON.stringify(shuffledQuestions));
-            localStorage.setItem('itpassport_quiz_current_index', currentQuestionIndex);
+            localStorage.setItem('itpassport_quiz_remaining', JSON.stringify(remainingQuestions));
             console.log('進捗データを保存しました');
         } catch (error) {
             console.error('進捗データ保存エラー:', error);
@@ -351,10 +347,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 const savedCorrect = localStorage.getItem('itpassport_quiz_correct');
                 const savedIncorrect = localStorage.getItem('itpassport_quiz_incorrect');
                 const savedMissed = localStorage.getItem('itpassport_quiz_missed');
+                const savedRemaining = localStorage.getItem('itpassport_quiz_remaining');
                 
                 if (savedCorrect) correctCount = parseInt(savedCorrect);
                 if (savedIncorrect) incorrectCount = parseInt(savedIncorrect);
                 if (savedMissed) missedQuestions = JSON.parse(savedMissed);
+                if (savedRemaining) remainingQuestions = JSON.parse(savedRemaining);
                 
                 // ファイル情報を表示
                 fileInfo.style.display = 'block';
@@ -369,8 +367,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     // 統計情報を更新
                     updateStats();
                     
-                    // 新しい問題を用意
-                    nextQuestion();
+                    // 残りの問題があるかチェック
+                    if (remainingQuestions && remainingQuestions.length > 0) {
+                        // 続きから開始
+                        nextQuestion();
+                    } else if (correctCount + incorrectCount >= questions.length) {
+                        // すべての問題が終了している場合
+                        showResults();
+                    } else {
+                        // 残りの問題がない場合は新しく開始
+                        startQuiz();
+                    }
                     
                     return true;
                 }
@@ -390,8 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.removeItem('itpassport_quiz_correct');
         localStorage.removeItem('itpassport_quiz_incorrect');
         localStorage.removeItem('itpassport_quiz_missed');
-        localStorage.removeItem('itpassport_quiz_shuffled');
-        localStorage.removeItem('itpassport_quiz_current_index');
+        localStorage.removeItem('itpassport_quiz_remaining');
         console.log('保存データをクリアしました');
     }
 });
