@@ -63,6 +63,21 @@ button:hover {
     background-color: #c0392b;
 }
 
+.home-button {
+    background-color: #95a5a6;
+}
+
+.home-button:hover {
+    background-color: #7f8c8d;
+}
+
+.control-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
 input[type="file"] {
     display: block;
     margin: 15px 0;
